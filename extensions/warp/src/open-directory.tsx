@@ -1,11 +1,33 @@
+import os from "node:os";
+import { execFile } from "node:child_process";
+import { useRef, useState } from "react";
 import { ActionPanel, Action, List, Icon, showToast, Toast, Keyboard } from "@raycast/api";
 import { usePromise } from "@raycast/utils";
-import { useRef, useState } from "react";
-import os from "node:os";
-import spotlight from "node-spotlight";
 import { Category, SearchResult } from "./types";
 import useLocalStorage from "./hooks/useLocalStorage";
-import { newTab, newWindow } from "./uri";
+import { getNewTabUri, getNewWindowUri } from "./uri";
+import { getAppName } from "./constants";
+
+const isWindows = process.platform === "win32";
+
+function searchDirectoriesWindows(query: string, maxResults: number): Promise<SearchResult[]> {
+  return new Promise((resolve) => {
+    const psCommand = `Get-ChildItem -Path $env:USERPROFILE -Directory -Recurse -Depth 5 -ErrorAction SilentlyContinue | Where-Object { $_.Name -like ('*' + $env:WARP_SEARCH_QUERY + '*') } | Select-Object -First ${maxResults} -ExpandProperty FullName`;
+    const env = { ...process.env, WARP_SEARCH_QUERY: query };
+    execFile("powershell", ["-NoProfile", "-Command", psCommand], { timeout: 15000, env }, (error, stdout) => {
+      if (error || !stdout) {
+        resolve([]);
+        return;
+      }
+      const results = stdout
+        .trim()
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .map((p) => ({ name: p.trim().replace(os.homedir(), "~"), path: p.trim() }));
+      resolve(results);
+    });
+  });
+}
 
 export default function Command() {
   const [searchText, setSearchText] = useState("");
@@ -23,24 +45,33 @@ export default function Command() {
         return [];
       }
 
-      const results = await spotlight(query);
+      if (isWindows) {
+        setResults([]);
+        const thisAbort = abortable.current;
+        const windowsResults = await searchDirectoriesWindows(searchText, maxResults);
+        if (thisAbort?.signal.aborted) return;
+        setResults(windowsResults);
+      } else {
+        const spotlight = (await import("node-spotlight")).default;
+        const results = await spotlight(query);
 
-      setResults([]);
+        setResults([]);
 
-      let resultsCount = 0;
+        let resultsCount = 0;
 
-      for await (const result of results) {
-        setResults((state) => [...state, { name: result.path.replace(os.homedir(), "~"), path: result.path }]);
+        for await (const result of results) {
+          setResults((state) => [...state, { name: result.path.replace(os.homedir(), "~"), path: result.path }]);
 
-        resultsCount++;
+          resultsCount++;
 
-        if (resultsCount >= maxResults) {
-          abortable?.current?.abort();
-          break;
+          if (resultsCount >= maxResults) {
+            abortable?.current?.abort();
+            break;
+          }
         }
       }
     },
-    [`kind:folders ${searchText}`],
+    [isWindows ? searchText : `kind:folders ${searchText}`],
     {
       abortable,
     }
@@ -103,7 +134,10 @@ export default function Command() {
     >
       {searchText && <List.EmptyView title="No directories found" description="Try refining your search" />}
       {!searchText && (
-        <List.EmptyView title="Search for a directory" description="Open a directory on your computer in Warp" />
+        <List.EmptyView
+          title="Search for a directory"
+          description={`Open a directory on your computer in ${getAppName()}`}
+        />
       )}
       <List.Section title={Category.PINNED}>
         {filteredPins.map((searchResult) => (
@@ -158,21 +192,25 @@ function SearchListItem(props: {
       actions={
         <ActionPanel>
           <ActionPanel.Section>
-            <Action.OpenInBrowser icon={Icon.Terminal} title="Open in New Warp Tab" url={newTab(searchResult.path)} />
+            <Action.OpenInBrowser
+              icon={Icon.Terminal}
+              title={`Open in New ${getAppName()} Tab`}
+              url={getNewTabUri(searchResult.path)}
+            />
           </ActionPanel.Section>
           <ActionPanel.Section>
             <Action.OpenInBrowser
-              title="Open in New Warp Window"
-              url={newWindow(searchResult.path)}
+              title={`Open in New ${getAppName()} Window`}
+              url={getNewWindowUri(searchResult.path)}
               shortcut={Keyboard.Shortcut.Common.Open}
             />
             <Action.CreateQuicklink
-              title="Save as Quicklink: New Tab"
-              quicklink={{ link: newTab(searchResult.path) }}
+              title={`Save as Quicklink: New ${getAppName()} Tab`}
+              quicklink={{ link: getNewTabUri(searchResult.path) }}
             />
             <Action.CreateQuicklink
-              title="Save as Quicklink: New Window"
-              quicklink={{ link: newWindow(searchResult.path) }}
+              title={`Save as Quicklink: New ${getAppName()} Window`}
+              quicklink={{ link: getNewWindowUri(searchResult.path) }}
             />
           </ActionPanel.Section>
           <ActionPanel.Section>

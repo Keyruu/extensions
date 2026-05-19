@@ -1,15 +1,14 @@
 import { useMemo } from "react";
 import { Action, ActionPanel, Color, Icon, List } from "@raycast/api";
-import { Library } from "../types";
+import { LibraryType } from "../types";
 import { LibraryDetail } from "./library-detail";
-import { toCapitalCase } from "../utils";
 
 const Actions = ({
   library,
   isShowingDetail,
   setIsShowingDetail,
 }: {
-  library: Library;
+  library: LibraryType;
   isShowingDetail: boolean;
   setIsShowingDetail: React.Dispatch<React.SetStateAction<boolean>>;
 }) => {
@@ -32,31 +31,38 @@ const Actions = ({
       <ActionPanel.Section title="Installation">
         <ActionPanel.Submenu title="Copy Install Command" icon={Icon.Terminal}>
           <Action.CopyToClipboard
+            icon={{ source: Icon.Terminal, tintColor: Color.PrimaryText }}
+            // eslint-disable-next-line @raycast/prefer-title-case
+            title="expo"
+            content={`npx expo install ${library.github.name}`}
+            shortcut={{ modifiers: ["cmd"], key: "1" }}
+          />
+          <Action.CopyToClipboard
             icon={{ source: Icon.Terminal, tintColor: Color.Red }}
             title="npm"
             content={`npm install ${library.github.name}`}
-            shortcut={{ modifiers: ["cmd"], key: "1" }}
+            shortcut={{ modifiers: ["cmd"], key: "2" }}
           />
           <Action.CopyToClipboard
             icon={{ source: Icon.Terminal, tintColor: Color.Blue }}
             // eslint-disable-next-line @raycast/prefer-title-case
             title="yarn"
             content={`yarn add ${library.github.name}`}
-            shortcut={{ modifiers: ["cmd"], key: "2" }}
+            shortcut={{ modifiers: ["cmd"], key: "3" }}
           />
           <Action.CopyToClipboard
             icon={{ source: Icon.Terminal, tintColor: Color.Yellow }}
             // eslint-disable-next-line @raycast/prefer-title-case
             title="pnpm"
             content={`pnpm install ${library.github.name}`}
-            shortcut={{ modifiers: ["cmd"], key: "3" }}
+            shortcut={{ modifiers: ["cmd"], key: "4" }}
           />
           <Action.CopyToClipboard
             icon={{ source: Icon.Terminal, tintColor: Color.Magenta }}
             // eslint-disable-next-line @raycast/prefer-title-case
             title="bun"
             content={`bun install ${library.github.name}`}
-            shortcut={{ modifiers: ["cmd"], key: "4" }}
+            shortcut={{ modifiers: ["cmd"], key: "5" }}
           />
         </ActionPanel.Submenu>
       </ActionPanel.Section>
@@ -82,6 +88,24 @@ const Actions = ({
           shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
         />
       </ActionPanel.Section>
+
+      <ActionPanel.Section title="Package Analysis">
+        <Action.OpenInBrowser
+          title="Bundlephobia"
+          icon={{ source: Icon.BarChart, tintColor: Color.Blue }}
+          url={`https://bundlephobia.com/package/${library.npmPkg}`}
+        />
+        <Action.OpenInBrowser
+          title="Pkg-Size.dev"
+          icon={{ source: Icon.HardDrive, tintColor: Color.Green }}
+          url={`https://pkg-size.dev/${library.npmPkg}`}
+        />
+        <Action.OpenInBrowser
+          title="Snyk Advisor"
+          icon={{ source: Icon.Shield, tintColor: Color.Purple }}
+          url={`https://snyk.io/advisor/npm-package/${library.npmPkg}`}
+        />
+      </ActionPanel.Section>
     </ActionPanel>
   );
 };
@@ -91,7 +115,7 @@ export const LibraryListItem = ({
   isShowingDetail,
   setIsShowingDetail,
 }: {
-  library: Library;
+  library: LibraryType;
   isShowingDetail: boolean;
   setIsShowingDetail: React.Dispatch<React.SetStateAction<boolean>>;
 }) => {
@@ -103,19 +127,11 @@ export const LibraryListItem = ({
               icon: library.unmaintained ? { source: Icon.Hammer, tintColor: Color.Yellow } : undefined,
               tooltip: "Not actively maintained",
             },
-            {
-              icon: library.goldstar ? { source: Icon.Rosette, tintColor: Color.Blue } : undefined,
-              tooltip: "Recommended",
-            },
           ]
         : [
             {
               icon: library.unmaintained ? { source: Icon.Hammer, tintColor: Color.Yellow } : undefined,
               tooltip: "Not actively maintained",
-            },
-            {
-              icon: library.goldstar ? { source: Icon.Rosette, tintColor: Color.Blue } : undefined,
-              tooltip: "Recommended",
             },
             {
               icon: { source: Icon.Star, tintColor: Color.Green },
@@ -125,7 +141,7 @@ export const LibraryListItem = ({
             {
               icon: { source: Icon.Download, tintColor: Color.Blue },
               text: library.npm?.downloads?.toLocaleString(),
-              tooltip: `${toCapitalCase(library.npm?.period || "month")}ly Downloads`,
+              tooltip: "Monthly Downloads",
             },
             {
               icon: library.android ? { source: Icon.Mobile, tintColor: Color.Green } : undefined,
@@ -145,7 +161,11 @@ export const LibraryListItem = ({
       }}
       title={library.github.name}
       keywords={library.github.topics}
-      subtitle={{ tooltip: library.github.description }}
+      subtitle={
+        !isShowingDetail && library.github.description
+          ? { value: library.github.description, tooltip: library.github.description }
+          : undefined
+      }
       accessories={accessories}
       detail={<LibraryDetail library={library} />}
       actions={<Actions library={library} isShowingDetail={isShowingDetail} setIsShowingDetail={setIsShowingDetail} />}

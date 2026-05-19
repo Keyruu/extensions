@@ -5,31 +5,32 @@ import { format } from "date-fns";
 import { getGitHubClient } from "../api/githubClient";
 import { ExtendedRepositoryFieldsFragment } from "../generated/graphql";
 import { getErrorMessage } from "../helpers/errors";
-import { cloneAndOpen, WEB_IDES } from "../helpers/repository";
+import { cloneAndOpen, buildCloneCommand, WEB_IDES } from "../helpers/repository";
 
 import CloneRepositoryForm from "./CloneRepositoryForm";
+import DownloadRepositoryForm from "./DownloadRepositoryForm";
 import { RepositoryDiscussionList } from "./RepositoryDiscussions";
 import { RepositoryIssueList } from "./RepositoryIssues";
 import { RepositoryPullRequestList } from "./RepositoryPullRequest";
 import RepositoryReleases from "./RepositoryReleases";
 import { SortAction, SortActionProps, SortTypesDataProps } from "./SortAction";
 
-type RepositoryActionProps = {
+type RepositoryActionProps<T = ExtendedRepositoryFieldsFragment[] | undefined> = {
   repository: ExtendedRepositoryFieldsFragment;
   onVisit: (repository: ExtendedRepositoryFieldsFragment) => void;
-  mutateList: MutatePromise<ExtendedRepositoryFieldsFragment[] | undefined>;
+  mutateList: MutatePromise<T>;
 };
 
-export default function RepositoryActions({
+export default function RepositoryActions<T = ExtendedRepositoryFieldsFragment[] | undefined>({
   repository,
   mutateList,
   onVisit,
   setSortQuery,
   sortQuery,
   sortTypesData,
-}: RepositoryActionProps & SortActionProps & SortTypesDataProps) {
+}: RepositoryActionProps<T> & SortActionProps & SortTypesDataProps) {
   const { github } = getGitHubClient();
-  const { baseClonePath } = getPreferenceValues<Preferences.SearchRepositories>();
+  const { baseClonePath, repositoryCloneProtocol, application } = getPreferenceValues<Preferences.SearchRepositories>();
 
   const updatedAt = new Date(repository.updatedAt);
 
@@ -117,7 +118,7 @@ export default function RepositoryActions({
           ))}
         </ActionPanel.Submenu>
 
-        {baseClonePath && (
+        {baseClonePath && application && (
           <Action
             icon={Icon.Terminal}
             title="Clone and Open"
@@ -125,14 +126,18 @@ export default function RepositoryActions({
             shortcut={{ modifiers: ["cmd", "opt"], key: "c" }}
           />
         )}
-        {!baseClonePath && (
-          <Action.Push
-            icon={Icon.Terminal}
-            title="Clone with Options"
-            target={<CloneRepositoryForm repository={repository} />}
-            shortcut={{ modifiers: ["cmd", "opt", "shift"], key: "c" }}
-          />
-        )}
+        <Action.Push
+          icon={Icon.Terminal}
+          title="Clone with Options"
+          target={<CloneRepositoryForm repository={repository} />}
+          shortcut={{ modifiers: ["cmd", "opt", "shift"], key: "c" }}
+        />
+        <Action.Push
+          icon={Icon.Download}
+          title="Download with Options"
+          target={<DownloadRepositoryForm repository={repository} />}
+          shortcut={{ modifiers: ["cmd", "shift"], key: "d" }}
+        />
         <Action.OpenInBrowser
           icon={{ source: "vscode.svg", tintColor: Color.PrimaryText }}
           title="Clone in VS Code"
@@ -234,7 +239,7 @@ export default function RepositoryActions({
         />
 
         <Action.CopyToClipboard
-          content={`git clone ${repository.url}`}
+          content={buildCloneCommand(repository.nameWithOwner, repositoryCloneProtocol)}
           title="Copy Clone Command"
           shortcut={{ modifiers: ["cmd", "shift"], key: "." }}
         />

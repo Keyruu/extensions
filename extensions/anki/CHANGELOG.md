@@ -1,5 +1,14 @@
 # Anki Changelog
 
+## [Security Maintenance] - 2026-02-13
+
+- Removed unused `npm-check-updates` dependency.
+- Reduced transitive dependency surface (including removal of transitive `tar` usage) to address security advisories.
+
+## [Bug Fixes] - 2024-12-06
+
+- Fixed turndown to support markdown syntax when rendering card content
+
 ## [Improvements] - 2024-10-07
 
 - Made `model` and `deck` dropdowns remeber last selected item

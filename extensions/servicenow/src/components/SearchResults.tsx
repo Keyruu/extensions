@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Action, ActionPanel, Color, environment, Icon, List, showToast, Toast } from "@raycast/api";
+import { Action, ActionPanel, Color, Icon, Keyboard, List, showToast, Toast } from "@raycast/api";
 import { useCachedState, useFetch } from "@raycast/utils";
 import { filter, flattenDeep, map, sumBy } from "lodash";
 
@@ -10,38 +10,38 @@ import SearchResultListItem from "./SearchResultListItem";
 import { getTableIconAndColor } from "../utils/getTableIconAndColor";
 import useInstances from "../hooks/useInstances";
 import InstanceForm from "./InstanceForm";
-import { GlobalSearchResponse, Instance, Record, SearchResult } from "../types";
+import { GlobalSearchResponse, Record, SearchResult } from "../types";
+import useFavorites from "../hooks/useFavorites";
+import { buildServiceNowUrl } from "../utils/buildServiceNowUrl";
+import { getInstanceBaseUrl } from "../utils/instanceUrl";
+import { instanceLabel } from "../utils/instanceLabel";
+import { useAuthHeader } from "../hooks/useAuthHeader";
 
-export default function ({ searchTerm }: { searchTerm: string }): JSX.Element {
-  const { addInstance, mutate: mutateInstances } = useInstances();
-  const { commandName } = environment;
-  const command = commandName == "search" ? "Search" : "Quickly Search";
+export default function ({ searchTerm }: { searchTerm: string }) {
+  const { isInFavorites, revalidateFavorites, addUrlToFavorites, removeFromFavorites } = useFavorites();
+  const { addInstance, mutate: mutateInstances, selectedInstance } = useInstances();
+  const command = "Search";
 
   const [navigationTitle, setNavigationTitle] = useState<string>("");
   const [filteredResults, setFilteredResults] = useState<SearchResult[]>([]);
   const [table] = useCachedState<string>("table", "all");
-  const [errorFetching, setErrorFetching] = useState<boolean>(false);
-  const [selectedInstance] = useCachedState<Instance>("instance");
-  const { alias = "", name: instanceName = "", username = "", password = "" } = selectedInstance || {};
+  const { name: instanceName = "" } = selectedInstance || {};
 
-  const instanceUrl = `https://${instanceName}.service-now.com`;
+  const instanceUrl = getInstanceBaseUrl({ name: instanceName });
+  const authHeader = useAuthHeader(selectedInstance);
 
-  const { isLoading, data, mutate } = useFetch(
+  const { isLoading, data, error, revalidate } = useFetch(
     `${instanceUrl}/api/now/globalsearch/search?sysparm_search=${searchTerm}`,
     {
-      headers: {
-        Authorization: `Basic ${Buffer.from(username + ":" + password).toString("base64")}`,
-      },
-      execute: !!selectedInstance,
+      headers: authHeader ? { Authorization: authHeader } : undefined,
+      execute: !!selectedInstance && !!authHeader,
 
       onError: (error) => {
-        setErrorFetching(true);
         console.error(error);
-        showToast(Toast.Style.Failure, "Could not fetch results", error.message);
+        showToast({ style: Toast.Style.Failure, title: "Could Not Fetch Results", message: error.message });
       },
 
       mapResult(response: GlobalSearchResponse) {
-        setErrorFetching(false);
         const recordsWithResults = filter(response.result?.groups, (r) => r.result_count > 0);
         const data = flattenDeep(map(recordsWithResults, (r) => filter(r.search_results, (x) => x.record_count > 0)));
         return { data };
@@ -60,21 +60,21 @@ export default function ({ searchTerm }: { searchTerm: string }): JSX.Element {
   }, [table, data]);
 
   useEffect(() => {
-    if (!selectedInstance || errorFetching) {
+    if (!selectedInstance || error) {
       setNavigationTitle(command);
       return;
     }
 
-    const aliasOrName = alias ? alias : instanceName;
+    const aliasOrName = selectedInstance ? instanceLabel(selectedInstance) : instanceName;
 
     if (isLoading) {
-      setNavigationTitle(`${command} > ${aliasOrName} > Loading results...`);
+      setNavigationTitle(`${command} > ${aliasOrName} > Loading results for ${searchTerm}...`);
       return;
     }
     const count = sumBy(data, (r) => r.record_count);
-    if (count == 0) setNavigationTitle(`${command} > ${aliasOrName} > No results found for "${searchTerm}"`);
-    else setNavigationTitle(`${command} > ${aliasOrName} > ${count} result${count > 1 ? "s" : ""} for "${searchTerm}"`);
-  }, [data, searchTerm, isLoading, errorFetching, selectedInstance]);
+    if (count == 0) setNavigationTitle(`${command} > ${aliasOrName} > No results found for ${searchTerm}`);
+    else setNavigationTitle(`${command} > ${aliasOrName} > ${count} result${count > 1 ? "s" : ""} for ${searchTerm}`);
+  }, [command, selectedInstance, error, isLoading, data, searchTerm, instanceName]);
 
   return (
     <List
@@ -84,14 +84,14 @@ export default function ({ searchTerm }: { searchTerm: string }): JSX.Element {
       searchBarAccessory={data ? <TableDropdown results={data} isLoading={isLoading} /> : undefined}
     >
       {selectedInstance ? (
-        errorFetching ? (
+        error ? (
           <List.EmptyView
             icon={{ source: Icon.ExclamationMark, tintColor: Color.Red }}
             title="Could Not Fetch Results"
             description="Press ⏎ to refresh or try later again"
             actions={
               <ActionPanel>
-                <Actions mutate={mutate} />
+                <Actions revalidate={revalidate} />
               </ActionPanel>
             }
           />
@@ -103,10 +103,12 @@ export default function ({ searchTerm }: { searchTerm: string }): JSX.Element {
               source: Icon[iconName as keyof typeof Icon],
               tintColor: Color[colorName as keyof typeof Color],
             };
+            const allResultsUrl = buildServiceNowUrl(instanceName, result.all_results_url);
             return (
               <List.Section
                 key={result.name + "_" + index}
-                title={`${result.name == "u_documate_page" ? "Documate Pages" : result.label_plural} (${result.record_count})`}
+                title={`${result.name == "u_documate_page" ? "Documate Pages" : result.label_plural}`}
+                subtitle={`${result.record_count} ${result.record_count == 1 ? "result" : "results"}`}
               >
                 {records.map((record: Record) => (
                   <SearchResultListItem
@@ -115,7 +117,12 @@ export default function ({ searchTerm }: { searchTerm: string }): JSX.Element {
                     icon={icon}
                     label={result.label}
                     fields={result.fields}
-                    mutateSearchResults={mutate}
+                    instanceUrl={instanceUrl}
+                    revalidateSearchResults={revalidate}
+                    favoriteId={isInFavorites(record.record_url)}
+                    addUrlToFavorites={addUrlToFavorites}
+                    removeFromFavorites={removeFromFavorites}
+                    revalidateFavorites={revalidateFavorites}
                   />
                 ))}
                 <List.Item
@@ -131,13 +138,17 @@ export default function ({ searchTerm }: { searchTerm: string }): JSX.Element {
                         title={`View all ${result.name == "u_documate_page" ? "Documate Page" : result.label} matches`}
                       >
                         <Action.OpenInBrowser
-                          title="Open in Servicenow"
-                          url={`${instanceUrl}${result.all_results_url}`}
+                          title="Open in ServiceNow"
+                          url={allResultsUrl}
                           icon={{ source: "servicenow.svg" }}
                         />
-                        <Action.CopyToClipboard title="Copy URL" content={`${instanceUrl}${result.all_results_url}`} />
+                        <Action.CopyToClipboard
+                          title="Copy URL"
+                          content={allResultsUrl}
+                          shortcut={Keyboard.Shortcut.Common.CopyPath}
+                        />
                       </List.Dropdown.Section>
-                      <Actions mutate={mutate} />
+                      <Actions revalidate={revalidate} />
                     </ActionPanel>
                   }
                 />
@@ -149,7 +160,7 @@ export default function ({ searchTerm }: { searchTerm: string }): JSX.Element {
             title="No Results"
             actions={
               <ActionPanel>
-                <Actions mutate={mutate} />
+                <Actions revalidate={revalidate} />
               </ActionPanel>
             }
           />

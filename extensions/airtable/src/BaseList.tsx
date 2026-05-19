@@ -4,6 +4,7 @@ import { AirtableBaseSchemaTableListView } from "./BaseSchemaListView";
 import { incrementNumberOfClicksOnDetailForBaseAsync, NumberOfClicksByBase } from "./LocalStorageWrapper";
 import { AirtableBaseMetadata } from "./types";
 import { Fragment } from "react";
+import { getAvatarIcon } from "@raycast/utils";
 
 export function BaseList(props: {
   isLoading: boolean;
@@ -35,6 +36,7 @@ function AirtableBaseListItem(props: { baseMetadata: AirtableBaseMetadata }) {
   return (
     <List.Item
       id={baseMetadata.id}
+      icon={getAvatarIcon(baseMetadata.title)}
       title={baseMetadata.title}
       // accessories={[{ icon: Icon.Binoculars, text: `${baseMetadata.permissionLevel} permission` }]}
       actions={
@@ -53,6 +55,7 @@ function AirtableBaseListItem(props: { baseMetadata: AirtableBaseMetadata }) {
             target={<AirtableBaseDetails baseMetadata={baseMetadata} />}
             shortcut={{ modifiers: ["cmd"], key: "d" }}
           />
+          {/* eslint-disable-next-line @raycast/prefer-title-case */}
           <Action.OpenInBrowser title="Open API Docs in Browser" url={baseMetadata.apiDocsUrl} />
           <Action.CopyToClipboard
             title={`Copy Base ID (${baseMetadata.id})`}

@@ -1,19 +1,46 @@
-import { ActionPanel, Action, List, showToast, Toast, Icon, Keyboard } from "@raycast/api";
-import useLocalStorage from "./hooks/useLocalStorage";
-import { useEffect, useState } from "react";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import YAML from "yaml";
-import { launchConfig } from "./uri";
+import { useEffect, useState } from "react";
+import { ActionPanel, Action, List, showToast, Toast, Icon, Keyboard } from "@raycast/api";
+import useLocalStorage from "./hooks/useLocalStorage";
+import { getLaunchConfigUri } from "./uri";
+import {
+  LAUNCH_CONFIGS_URL,
+  NO_LAUNCH_CONFIGS_TITLE,
+  VIEW_DOCS_ACTION_TITLE,
+  OPEN_CONFIGS_DIR_ACTION_TITLE,
+  NO_LAUNCH_CONFIGS_MESSAGE,
+  getAppName,
+} from "./constants";
 
 interface SearchResult {
   name: string;
   path: string;
 }
 
-const configPath = ".warp/launch_configurations";
-const fullPath = path.join(os.homedir(), configPath);
+const isWindows = process.platform === "win32";
+
+function getConfigDir(): string {
+  if (isWindows) {
+    const appData = process.env.APPDATA ?? path.join(os.homedir(), "AppData", "Roaming");
+    return path.join(appData, "Warp", "Warp", "data", "tab_configs");
+  }
+  return path.join(os.homedir(), ".warp", "launch_configurations");
+}
+
+const fullPath = getConfigDir();
+const configFilePattern = isWindows ? /\.toml$/i : /\.ya?ml$/i;
+
+function parseConfigName(contents: string, filePath: string): string | null {
+  if (isWindows) {
+    const match = contents.match(/^name\s*=\s*["'](.+?)["']/m);
+    return match ? match[1] : null;
+  }
+  const yaml = YAML.parse(contents);
+  return yaml?.name ?? path.basename(filePath, path.extname(filePath));
+}
 
 export default function Command() {
   const [searchText, setSearchText] = useState("");
@@ -40,34 +67,33 @@ export default function Command() {
     const exists = await fs.stat(fullPath).catch(() => false);
 
     if (exists === false) {
-      return showError("Launch configuration directory missing", `~/${configPath} wasn't found on your computer!`);
+      return showError("Launch Configuration directory missing", `${fullPath} wasn't found on your computer!`);
     }
 
     const files = await fs.readdir(fullPath).catch(() => null);
 
     if (files === null || typeof files === "undefined") {
       return showError(
-        "Error reading launch configuration directory",
-        "Something went wrong while reading the launch configuration directory."
+        "Error reading Launch Configuration directory",
+        "Something went wrong while reading the Launch Configuration directory."
       );
     }
 
-    const fileList = await Promise.all(
-      files
-        .filter((file) => file.match(/.y(a)?ml$/g))
-        .map(async (file) => {
-          const contents = await fs.readFile(path.join(fullPath, file), "utf-8");
-          const yaml = YAML.parse(contents);
+    const fileList = (
+      await Promise.all(
+        files
+          .filter((file) => configFilePattern.test(file))
+          .map(async (file) => {
+            const contents = await fs.readFile(path.join(fullPath, file), "utf-8");
+            const name = parseConfigName(contents, file);
 
-          return { name: yaml.name, path: path.join(fullPath, file) };
-        })
-    );
+            return name ? { name, path: path.join(fullPath, file) } : null;
+          })
+      )
+    ).filter((item): item is SearchResult => item !== null);
 
     if (fileList.length === 0) {
-      return showError(
-        "No launch configurations found",
-        "You need to create at least one launch configuration before launching: https://docs.warp.dev/features/sessions/launch-configurations"
-      );
+      return showError(NO_LAUNCH_CONFIGS_TITLE, NO_LAUNCH_CONFIGS_MESSAGE);
     }
 
     const allFileNames = fileList.map(({ name }) => name);
@@ -117,12 +143,21 @@ export default function Command() {
     <List
       isLoading={results.length === 0 && !error}
       onSearchTextChange={setSearchText}
-      searchBarPlaceholder="Searching for launch configurations..."
+      searchBarPlaceholder="Searching for Launch Configurations..."
       throttle
     >
       <List.EmptyView
-        title="No launch configurations found"
-        description="You need to create at least one launch configuration before launching https://docs.warp.dev/features/sessions/launch-configurations."
+        title={NO_LAUNCH_CONFIGS_TITLE}
+        description={NO_LAUNCH_CONFIGS_MESSAGE}
+        icon={Icon.Terminal}
+        actions={
+          <ActionPanel>
+            <ActionPanel.Section>
+              <Action.ShowInFinder title={OPEN_CONFIGS_DIR_ACTION_TITLE} path={fullPath} icon={Icon.Folder} />
+              <Action.OpenInBrowser title={VIEW_DOCS_ACTION_TITLE} url={LAUNCH_CONFIGS_URL} icon={Icon.Document} />
+            </ActionPanel.Section>
+          </ActionPanel>
+        }
       />
       <List.Section title="Results" subtitle={results?.length + ""}>
         {results
@@ -161,15 +196,19 @@ function SearchListItem({
   return (
     <List.Item
       title={searchResult.name}
-      subtitle={searchResult.path.replace(fullPath + "/", "")}
+      subtitle={searchResult.path.replace(fullPath + path.sep, "")}
       actions={
         <ActionPanel>
           <ActionPanel.Section>
-            <Action.OpenInBrowser title="Launch" icon={Icon.Terminal} url={launchConfig(searchResult.name)} />
+            <Action.OpenInBrowser
+              title={`Launch in ${getAppName()}`}
+              icon={Icon.Terminal}
+              url={getLaunchConfigUri(searchResult.name)}
+            />
           </ActionPanel.Section>
           <ActionPanel.Section>
             <Action.ShowInFinder
-              title="Reveal in Finder"
+              title={isWindows ? "Reveal in File Explorer" : "Reveal in Finder"}
               path={searchResult.path}
               shortcut={{ modifiers: ["cmd"], key: "." }}
             />
@@ -180,8 +219,10 @@ function SearchListItem({
             />
             <Action.CreateQuicklink
               title="Save as Quicklink"
-              quicklink={{ link: launchConfig(searchResult.name), name: searchResult.name }}
+              quicklink={{ link: getLaunchConfigUri(searchResult.name), name: searchResult.name }}
             />
+            <Action.ShowInFinder title={OPEN_CONFIGS_DIR_ACTION_TITLE} path={fullPath} icon={Icon.Folder} />
+            <Action.OpenInBrowser title={VIEW_DOCS_ACTION_TITLE} url={LAUNCH_CONFIGS_URL} icon={Icon.Document} />
             {!isSearching && (
               <>
                 <Action

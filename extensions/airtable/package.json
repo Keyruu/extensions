@@ -23,7 +23,7 @@
       "description": "The base URL for the Airtable UI (you probably don't need to change this)",
       "default": "https://airtable.com",
       "placeholder": "https://airtable.com",
-      "required": false
+      "required": true
     },
     {
       "type": "textfield",
@@ -34,7 +34,7 @@
       "description": "The base URL for the Airtable API (you probably don't need to change this)",
       "default": "https://api.airtable.com",
       "placeholder": "https://api.airtable.com",
-      "required": false
+      "required": true
     },
     {
       "type": "textfield",
@@ -43,8 +43,16 @@
       "title": "Airtable OAuth Client ID",
       "label": "Airtable OAuth Integration Client ID",
       "description": "The OAuth client ID for the Airtable integration",
-      "default": "76a7c93f-0834-41ba-82a5-e23e771fb19f",
-      "placeholder": "76a7c93f-0834-41ba-82a5-e23e771fb19f",
+      "default": "59e5ecce-9dc8-4881-89c8-98d44be1e68a",
+      "placeholder": "59e5ecce-9dc8-4881-89c8-98d44be1e68a",
+      "required": true
+    },
+    {
+      "type": "password",
+      "name": "airtablePersonalAccessToken",
+      "title": "Airtable Personal Access Token",
+      "placeholder": "pat...xxx",
+      "description": "Optional Personal Access Token for the Airtable integration",
       "required": false
     }
   ],
@@ -58,21 +66,19 @@
     }
   ],
   "dependencies": {
-    "@raycast/api": "^1.79.0",
-    "@raycast/utils": "^1.17.0",
-    "node-fetch": "^3.3.0"
+    "@raycast/api": "^1.94.0",
+    "@raycast/utils": "^1.18.0"
   },
   "devDependencies": {
-    "@raycast/eslint-config": "^1.0.11",
-    "@types/node": "^20.8.10",
-    "@types/react": "^18.3.3",
-    "eslint": "^7.32.0",
-    "prettier": "^2.5.1",
-    "react": "^18.2.0",
-    "typescript": "^4.4.3"
+    "@raycast/eslint-config": "^2.0.4",
+    "@types/node": "22.13.10",
+    "@types/react": "19.0.10",
+    "eslint": "^9.22.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2"
   },
   "scripts": {
-    "build": "ray build -e dist",
+    "build": "ray build",
     "dev": "ray develop",
     "fix-lint": "ray lint --fix",
     "lint": "ray lint",

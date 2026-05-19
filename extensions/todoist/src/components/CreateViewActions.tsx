@@ -1,7 +1,7 @@
-import { Action, environment } from "@raycast/api";
+import { Action, Keyboard, environment } from "@raycast/api";
 
-import { isTodoistInstalled } from "../helpers/isTodoistInstalled";
 import { QuickLinkView } from "../home";
+import { useIsTodoistInstalled } from "../hooks/useIsTodoistInstalled";
 
 function createDeeplink(view: string) {
   const protocol = environment.raycastVersion.includes("alpha") ? "raycastinternal://" : "raycast://";
@@ -10,6 +10,8 @@ function createDeeplink(view: string) {
 }
 
 export default function CreateViewActions({ title, view, todoistLink }: QuickLinkView) {
+  const isTodoistInstalled = useIsTodoistInstalled();
+
   return (
     <>
       <Action.CreateQuicklink
@@ -17,6 +19,10 @@ export default function CreateViewActions({ title, view, todoistLink }: QuickLin
         quicklink={{
           link: createDeeplink(view),
           name: title,
+        }}
+        shortcut={{
+          macOS: { modifiers: ["cmd", "shift"], key: "n" },
+          windows: { modifiers: ["ctrl", "shift"], key: "n" },
         }}
       />
 
@@ -28,6 +34,7 @@ export default function CreateViewActions({ title, view, todoistLink }: QuickLin
             link: isTodoistInstalled ? todoistLink.app : todoistLink.web,
             name: title,
           }}
+          shortcut={Keyboard.Shortcut.Common.New}
         />
       ) : null}
     </>

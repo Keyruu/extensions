@@ -1,9 +1,11 @@
-import { OllamaApiChatMessage, OllamaApiGenerateStats, OllamaServer } from "../ollama/types";
+import { McpToolInfo } from "../mcp/types";
+import { OllamaApiChatMessage, OllamaApiGenerateStats, OllamaServer, ThinkingEffort } from "../ollama/types";
 import { RaycastImage } from "../types";
 
 export interface SettingsModel {
   server: OllamaServer;
   tag: string;
+  thinking?: ThinkingEffort;
   keep_alive?: string;
 }
 
@@ -19,8 +21,9 @@ export interface SettingsModels {
 
 export interface SettingsChatModels {
   main: SettingsChatModel;
-  embedding?: SettingsChatModel;
   vision?: SettingsChatModel;
+  tools?: SettingsChatModel;
+  embedding?: SettingsChatModel;
 }
 
 export interface SettingsCommandAnswer {
@@ -40,10 +43,12 @@ export interface RaycastChat {
   name: string;
   models: SettingsChatModels;
   messages: RaycastChatMessage[];
+  mcp_server?: string[];
 }
 
 export interface RaycastChatMessage extends OllamaApiGenerateStats {
   images?: RaycastImage[];
   files?: string[];
+  tools?: McpToolInfo[];
   messages: OllamaApiChatMessage[];
 }

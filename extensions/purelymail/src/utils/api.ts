@@ -1,7 +1,6 @@
 import {
   CreateRoutingRequest,
   CreateUserRequest,
-  UpdateDomainSettingsRequest,
   ErrorResponse,
   RequestBody,
   Response,
@@ -9,7 +8,6 @@ import {
   CreateAppPasswordRequest,
   ModifyUserRequest,
 } from "./types";
-import fetch from "node-fetch";
 import { API_HEADERS, API_METHOD, API_URL } from "./constants";
 import { Toast, showToast } from "@raycast/api";
 import { showFailureToast } from "@raycast/utils";
@@ -47,7 +45,7 @@ const callApi = async (
       else await showFailureToast(response.message, { title: response.code });
     }
     return response;
-  } catch (error) {
+  } catch {
     const errorResponse = {
       type: "error",
       code: "purelymailError",
@@ -63,6 +61,8 @@ const callApi = async (
 // deleteUser
 // getRoutingRules
 // deleteRoutingRule
+// getDomains
+// updateDomainSettings
 export async function modifyUser({ ...params }: ModifyUserRequest) {
   const body = { ...params };
   return await callApi("modifyUser", body);
@@ -80,17 +80,9 @@ export async function addDomain(domainName: string) {
   const body = { domainName };
   return await callApi("addDomain", body);
 }
-export async function updateDomainSettings({ ...params }: UpdateDomainSettingsRequest) {
-  const body = { ...params };
-  return await callApi("updateDomainSettings", body);
-}
 export async function deleteDomain(name: string) {
   const body = { name };
   return await callApi("deleteDomain", body, "Deleting Domain", "Deleted Domain");
-}
-export async function getDomains(includeShared = false) {
-  const body = { includeShared };
-  return await callApi("listDomains", body, "Fetching Domains", "Fetched Domains");
 }
 
 export async function createRoutingRule({ ...params }: CreateRoutingRequest) {

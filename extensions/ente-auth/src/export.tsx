@@ -1,40 +1,48 @@
+import { Detail } from "@raycast/api";
+import { showFailureToast } from "@raycast/utils";
 import { showError } from "./components/showError";
-import { showToast, Toast, Detail } from "@raycast/api";
-import { getSecrets, parseSecrets } from "./helpers/secrets";
-import { DEFAULT_EXPORT_PATH, EXPORTPATH } from "./constants/ente";
+import { DEFAULT_EXPORT_DIR_PATH, getExportFilePath } from "./constants/ente";
 import { checkEnteBinary, createEntePath, exportEnteAuthSecrets } from "./helpers/ente";
+import { getSecrets, parseSecrets } from "./helpers/secrets";
 
 export default function Command() {
-  const enteBinaryExists = checkEnteBinary();
+	const enteBinaryExists = checkEnteBinary();
 
-  if (!enteBinaryExists) {
-    return showError();
-  }
+	if (!enteBinaryExists) {
+		return showError();
+	}
+	const exportDirPath = DEFAULT_EXPORT_DIR_PATH();
+	const exportFilePath = getExportFilePath(exportDirPath);
 
-  try {
-    createEntePath(DEFAULT_EXPORT_PATH);
-  } catch (error) {
-    showToast(Toast.Style.Failure, "Folder creation failed");
-    return <Detail markdown={`## Failed to create folder at \`${EXPORTPATH}\``} />;
-  }
+	try {
+		createEntePath(exportDirPath);
+	} catch (error) {
+		showFailureToast(error, { title: "Folder creation failed" });
+		return <Detail markdown={`## Failed to create folder at \`${exportDirPath}\``} />;
+	}
 
-  try {
-    exportEnteAuthSecrets();
-  } catch (error) {
-    showToast(Toast.Style.Failure, "Export failed");
-  }
+	try {
+		exportEnteAuthSecrets(exportDirPath);
+	} catch (error) {
+		showFailureToast(error, { title: "Export failed" });
+		return (
+			<Detail markdown={`## Export failed\n\n${error instanceof Error ? error.message : "Unknown error"}`} />
+		);
+	}
 
-  const secrets = parseSecrets(getSecrets(EXPORTPATH));
-  const secretsList = secrets
-    .map((secret) => `- ${secret.issuer.replaceAll("+", " ")}  - \`${secret.username}\`\n`)
-    .join("");
+	const secrets = parseSecrets(getSecrets(exportFilePath));
+	const secretsList = secrets
+		.map((secret) => `- ${secret.issuer.replaceAll("+", " ")}  - \`${secret.username}\`\n`)
+		.join("");
 
-  return (
-    <Detail
-      isLoading={!secrets || secrets.length === 0}
-      markdown={
-        `### ${secrets.length} secrets exported from \`${EXPORTPATH}\`\n` + `\n**Secrets:**\n` + `${secretsList}`
-      }
-    />
-  );
+	return (
+		<Detail
+			isLoading={!secrets || secrets.length === 0}
+			markdown={
+				`### ${secrets.length} secrets exported from \`${exportFilePath}\`\n` +
+				`\n**Secrets:**\n` +
+				`${secretsList}`
+			}
+		/>
+	);
 }

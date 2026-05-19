@@ -1,23 +1,24 @@
 import { environment, getPreferenceValues, showToast, Toast } from "@raycast/api";
-import fetch, { Headers } from "node-fetch";
 import type {
-  Team,
-  Deployment,
-  Project,
-  Environment,
-  User,
-  CreateEnvironmentVariableResponse,
   Build,
-  Pagination,
   CreateEnvironment,
+  CreateEnvironmentVariableResponse,
+  Deployment,
+  Domain,
+  Environment,
+  Pagination,
+  Project,
+  Team,
+  User,
+  AIGatewayLogItem,
 } from "./types";
 
 export const token = getPreferenceValues().accessToken;
-const headers = new Headers({
+const headers = {
   Authorization: "Bearer " + token,
-});
+};
 
-export const FetchHeaders = [...headers];
+export const FetchHeaders = Object.entries(headers);
 
 const apiURL = "https://api.vercel.com/";
 
@@ -142,6 +143,25 @@ export async function fetchDeployments(teamId?: string, limit = 100, maxToFetch 
   }
 }
 
+export async function fetchLatestDeployment(teamId?: string): Promise<Deployment | null> {
+  try {
+    const fetchURL = getFetchDeploymentsURL(teamId, undefined, 1);
+    const response = await fetch(fetchURL, {
+      method: "get",
+      headers: headers,
+    });
+    const json = (await response.json()) as { deployments: Deployment[] };
+    return json.deployments[0] ?? null;
+  } catch (err) {
+    console.error(err);
+    showToast({
+      style: Toast.Style.Failure,
+      title: "Failed to fetch latest deployment",
+    });
+    throw new Error("Failed to fetch latest deployment");
+  }
+}
+
 export function getFetchDeploymentBuildsURL(
   deploymentId: Deployment["uid"] | string,
   teamId?: Team["id"],
@@ -176,6 +196,15 @@ export async function fetchEnvironmentVariables(projectId: string, teamId?: stri
 
 export function getFetchProjectsURL(teamId?: string, limit = 100) {
   return apiURL + `v8/projects?teamId=${teamId ?? ""}&limit=${limit}`;
+}
+
+export async function fetchProjects(teamId?: string, limit = 100): Promise<Project[]> {
+  const response = await fetch(getFetchProjectsURL(teamId, limit), {
+    method: "get",
+    headers: headers,
+  });
+  const json = (await response.json()) as { projects: Project[] };
+  return json.projects;
 }
 
 // Raw function for fetching project environment variable
@@ -266,21 +295,29 @@ function arrayBufferToBase64(buffer: ArrayBuffer) {
   return btoa(binary);
 }
 
-export async function getScreenshotImageURL(deploymentId: Deployment["uid"]) {
-  const theme = environment.appearance === "light" ? "0" : "1";
-  const image = await fetch(
-    `https://vercel.com/api/screenshot?dark=${theme}&deploymentId=${deploymentId}&withStatus=false`,
-    {
-      method: "get",
-      headers: headers,
-    },
-  );
+export async function getScreenshotImageURL(deploymentId: Deployment["uid"], teamId?: string) {
+  try {
+    const theme = environment.appearance === "light" ? "0" : "1";
+    const response = await fetch(
+      `https://vercel.com/api/screenshot?dark=${theme}&deploymentId=${deploymentId}&withStatus=false&teamId=${teamId ?? ""}`,
+      {
+        method: "get",
+        headers: headers,
+      },
+    );
 
-  const arrayBuffer = await image.arrayBuffer();
-  const base64Flag = "data:image/png;base64,";
-  const imageStr = base64Flag + arrayBufferToBase64(arrayBuffer);
+    if (response.status !== 200) {
+      return null;
+    }
 
-  return imageStr;
+    const arrayBuffer = await response.arrayBuffer();
+    const base64Flag = "data:image/png;base64,";
+    const imageStr = base64Flag + arrayBufferToBase64(arrayBuffer);
+    return imageStr;
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
 }
 
 export function getDeploymentURL(userOrTeamSlug: string, projectName: string, deploymentId: Deployment["uid"]) {
@@ -293,4 +330,137 @@ export function getDeploymentURL(userOrTeamSlug: string, projectName: string, de
 
 export function getFetchDomainsURL(teamId?: string, limit = 100) {
   return apiURL + `v5/domains?teamId=${teamId ?? ""}&limit=${limit}`;
+}
+
+export async function fetchDomains(teamId?: string, limit = 100) {
+  const response = await fetch(getFetchDomainsURL(teamId, limit), {
+    method: "get",
+    headers: headers,
+  });
+  const json = (await response.json()) as { domains: Domain[] };
+  return json.domains;
+}
+
+export async function checkDomainAvailability(domain: string) {
+  const response = await fetch(apiURL + `v1/registrar/domains/${domain}/availability`, {
+    method: "get",
+    headers: headers,
+  });
+
+  if (!response.ok) {
+    const errorJson = (await response.json()) as { code: string; message: string };
+    return {
+      available: false,
+      error:
+        errorJson.message ||
+        "Check domain availability failed. Please verify that the domain is valid or try again later.",
+    };
+  }
+
+  const json = (await response.json()) as { available: boolean };
+  return { available: json.available };
+}
+
+/**
+ * Cancel a deployment that is currently building or queued.
+ * @see https://docs.vercel.com/docs/rest-api/reference/endpoints/deployments/cancel-a-deployment
+ */
+export async function cancelDeployment(
+  deploymentId: Deployment["uid"] | string,
+  teamId?: Team["id"],
+): Promise<Deployment> {
+  try {
+    const id =
+      typeof deploymentId === "string" && deploymentId.startsWith("dpl_") ? deploymentId : `dpl_${deploymentId}`;
+    const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
+    const response = await fetch(apiURL + `v12/deployments/${id}/cancel${query}`, {
+      method: "PATCH",
+      headers: headers,
+    });
+    if (!response.ok) {
+      const errorJson = (await response.json()) as { error?: { message?: string } };
+      throw new Error(errorJson.error?.message ?? `Cancel failed (${response.status})`);
+    }
+    const json = (await response.json()) as Deployment;
+    return json;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to cancel deployment";
+    showToast({
+      style: Toast.Style.Failure,
+      title: "Failed to cancel deployment",
+      message,
+    });
+    throw err;
+  }
+}
+
+// AI Gateway Logs
+function formatDateTime(date: Date): string {
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
+}
+
+export async function fetchAIGatewayLogs(ownerId: string, limit = 100) {
+  try {
+    const endTime = new Date();
+    const startTime = new Date(endTime.getTime() - 12 * 60 * 60 * 1000);
+
+    const params = new URLSearchParams({
+      ownerId,
+      startTime: formatDateTime(startTime),
+      endTime: formatDateTime(endTime),
+      limit: limit.toString(),
+      offset: "0",
+      sortBy: "timestamp",
+      sortDir: "DESC",
+    });
+
+    const url = `https://vercel.com/api/ai/gateway-inference-requests?${params}`;
+    const response = await fetch(url, {
+      method: "get",
+      headers: headers,
+    });
+
+    if (!response.ok) {
+      console.error("AI Gateway Logs API error:", response.status, response.statusText);
+      const errorText = await response.text();
+      console.error("Error response:", errorText);
+      showToast({
+        style: Toast.Style.Failure,
+        title: "Failed to fetch AI Gateway logs",
+      });
+      return [];
+    }
+
+    const json = (await response.json()) as { data: AIGatewayLogItem[] };
+    return json.data || [];
+  } catch (err) {
+    console.error("Failed to fetch AI Gateway logs:", err);
+    showToast({
+      style: Toast.Style.Failure,
+      title: "Failed to fetch AI Gateway logs",
+    });
+    return [];
+  }
+}
+
+export async function fetchAICreditsBalance(teamId: string) {
+  try {
+    const url = `https://vercel.com/api/ai/ai-credits-balance?teamId=${teamId}`;
+    const response = await fetch(url, {
+      method: "get",
+      headers: headers,
+    });
+
+    if (!response.ok) {
+      console.error("AI Credits Balance API error:", response.status, response.statusText);
+      return null;
+    }
+
+    const json = (await response.json()) as { cumulativeBalance: string };
+    return json;
+  } catch (err) {
+    console.error("Failed to fetch AI credits balance:", err);
+    return null;
+  }
 }

@@ -13,19 +13,20 @@ export const sortDropdownItems = [
       { value: "relevance", title: "Relevance" },
       { value: "updated", title: "Last Updated" },
       { value: "added", title: "Recently Added" },
-      { value: "recommended", title: "Recommended" },
+      { value: "released", title: "Recently Released" },
       { value: "quality", title: "Quality" },
       { value: "popularity", title: "Popularity Gain" },
       { value: "issues", title: "Issues" },
       { value: "downloads", title: "Downloads" },
       { value: "stars", title: "Stars" },
+      { value: "dependencies", title: "Dependencies" },
+      { value: "size", title: "Package Size" },
     ],
   },
   {
     title: "Platform",
     items: [
       { value: "android", title: "Android" },
-      { value: "expo", title: "Expo Go" },
       { value: "ios", title: "iOS" },
       { value: "macos", title: "macOS" },
       { value: "tvos", title: "tvOS" },
@@ -35,16 +36,35 @@ export const sortDropdownItems = [
     ],
   },
   {
+    title: "Module Type",
+    items: [
+      { value: "expoModule", title: "Expo Module" },
+      { value: "nitroModule", title: "Nitro Module" },
+      { value: "turboModule", title: "Turbo Module" },
+    ],
+  },
+  {
     title: "Status",
     items: [
+      { value: "newArchitecture", title: "Supports New Architecture" },
+      { value: "hasNativeCode", title: "Uses native code" },
+      { value: "configPlugin", title: "Has Expo config plugin" },
       { value: "hasExample", title: "Has example" },
       { value: "hasImage", title: "Has image preview" },
       { value: "hasTypes", title: "Has TypeScript types" },
-      { value: "newArchitecture", title: "Supports New Architecture" },
+      { value: "nightlyProgram", title: "Tested in Nightly Program" },
+      { value: "wasRecentlyUpdated", title: "Recently updated" },
       { value: "isMaintained", title: "Maintained" },
       { value: "isPopular", title: "Popular" },
-      { value: "wasRecentlyUpdated", title: "Recently updated" },
-      { value: "isRecommended", title: "Recommended" },
+    ],
+  },
+  {
+    title: "Compatibility",
+    items: [
+      { value: "expoGo", title: "Works with Expo Go" },
+      { value: "fireos", title: "Works with Fire OS" },
+      { value: "horizon", title: "Works with Meta Horizon OS" },
+      { value: "vegaos", title: "Works with Vega OS" },
     ],
   },
   {
@@ -58,18 +78,31 @@ export const sortDropdownItems = [
 ];
 
 export const compatibilityColors: { [key: string]: Color } = {
-  "Development Tool": Color.Blue,
-  Template: Color.Purple,
-  "New Architecture": Color.Green,
-  "Expo Go": Color.Orange,
+  "Development Tool": Color.Purple,
+  Template: Color.Magenta,
+  "New Architecture": Color.Blue,
+  "Old Architecture": Color.Yellow,
+  "Expo Go": Color.PrimaryText,
 };
 
 export const platformColors: { [key: string]: Color } = {
   Android: Color.Green,
-  iOS: Color.Blue,
-  Web: Color.Orange,
-  Windows: Color.Purple,
-  macOS: Color.Red,
-  tvOS: Color.Yellow,
-  visionOS: Color.Magenta,
+  iOS: Color.PrimaryText,
+  Web: Color.Magenta,
+  Windows: Color.Blue,
+  macOS: Color.PrimaryText,
+  tvOS: Color.PrimaryText,
+  visionOS: Color.PrimaryText,
+  VegaOS: Color.Orange,
+  "Horizon OS": Color.Purple,
 };
+
+export const moduleTypeColors: { [key: string]: Color } = {
+  "Expo Module": Color.Purple,
+  "Turbo Module": Color.Orange,
+  "Nitro Module": Color.Red,
+  "Config Plugin": Color.Green,
+};
+
+export const MUL = 1000;
+export const SUFFIXES = ["B", "kB", "MB"];

@@ -1,5 +1,4 @@
-import { RequestBody, Response, Rule } from "./types";
-import fetch from "node-fetch";
+import { Domain, RequestBody, Response, Rule } from "./types";
 import { API_HEADERS, API_METHOD, API_URL } from "./constants";
 import { Toast, showToast } from "@raycast/api";
 import { useCachedPromise } from "@raycast/utils";
@@ -67,3 +66,17 @@ export const useOwnershipCode = () =>
   useCachedPromise(async () => (await callApi<{ code: string }>("getOwnershipCode")).code, [], {
     keepPreviousData: true,
   });
+
+export const useDomains = ({ includeShared = false } = {}) =>
+  useCachedPromise(
+    async () => {
+      const body = { includeShared };
+      const result = await callApi<{ domains: Domain[] }>("listDomains", { body });
+      return result.domains;
+    },
+    [],
+    {
+      initialData: [],
+      keepPreviousData: true,
+    },
+  );

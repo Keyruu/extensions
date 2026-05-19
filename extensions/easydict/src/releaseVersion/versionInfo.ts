@@ -26,24 +26,35 @@ export class Easydict {
   static repo = "Raycast-Easydict";
 
   // * NOTE: this is new version info, don't use it directly. Use getCurrentStoredVersionInfo() instead.
-  version = "2.9.3";
-  buildNumber = 29;
-  versionDate = "2024-09-13";
+  version = "2.11.3";
+  buildNumber = 30;
+  versionDate = "2026-05-15";
   isNeedPrompt = true;
   hasPrompted = false; // * always default false, only show once, then should be set to true.
 
   releaseMarkdown = `
 ## [v${this.version}] - ${this.versionDate}
 
+### 💎 改进
+
+- 优化类型安全。
+- 更新依赖，提升稳定性
+
 ### 🐞 修复
 
-- 修复了 Bing 语种识别 API 失败，导致查询过程卡住问题。https://github.com/raycast/extensions/issues/14357
+- 移除密码字段的默认值，防止运行时类型不匹配。
 
 ---
 
+### 💎 Improvement
+
+- Improve type safety.
+- Update dependencies and improve stability
+
 ### 🐞 Fixed
 
-- Fixed Bing language detection API failed, which caused the query process to hang. https://github.com/raycast/extensions/issues/14357
+- Remove default values for password fields to prevent runtime type mismatch.
+
 `;
   getRepoUrl() {
     return `${githubUrl}/${Easydict.author}/${Easydict.repo}`;

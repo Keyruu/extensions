@@ -1,5 +1,46 @@
 # Changelog
 
+## [Feature] - 2026-03-09
+
+- Feature: Added a per-model `Reasoning` toggle with an `Effort` selector (`none`, `low`, `medium`, `high`) in the model form.
+- Feature: Added support for passing `reasoning_effort` in Chat Completions requests only when the reasoning override is enabled.
+- Fix: Added automatic one-time retry without `reasoning_effort` when OpenAI-compatible providers do not support that parameter.
+- Feature: Change all occurence of `gpt-4o-mini` and the like to `gpt-5-nano`, as the latter is cheaper, more capable and more efficient.
+
+## [Added Windows Support] - 2025-12-16
+
+## [Feature] - 2025-12-08
+
+- Windows 11 support: vision commands can read selected images from File Explorer; app icon resolution falls back to executable paths on Windows.
+
+## [Fix] - 2025-04-14
+
+- Fix: Actions such as copy, save, and speak were unavailable in chat messages of previous conversations.
+
+## [Feature] - 2025-02-23
+
+- Fix: Fixed the error display issue: errors are now always fully readable and rendered correctly in their respective places.
+- Fix: Fixed the issue when some errors may not be displayed in the UI.
+- Feature: Added a tip to help users understand how to discuss the results of the AI command in chat.
+- Feature: Refactored error messages. Now, they are more informative and user-friendly.
+
+## [Feature] - 2025-01-22
+
+- Feature: Introduced a method to dynamically create new commands for processing user text input from various sources, including selected text, clipboard text, and open web pages.
+- Feature: Added new commands: "Fix Spelling and Grammar" and "Improve Writing".
+
+## [Feature] - 2025-01-01
+
+- Feature: Added import/export functionality to Conversations.
+
+## [Fix] - 2025-01-01
+
+- Fix: Fixed o1 models not working, and added a prompt warning for o1 models.
+
+## [Fix] - 2024-11-24
+
+- Fix: Fixed Images not rendering if their paths have spaces in them.
+
 ## [Feature] - 2024-10-09
 
 - Feature: Added import/export functionality to Models to prevent potential data loss and alleviate data anxiety.
@@ -18,11 +59,11 @@
 
 ## [Feature] - 2024-09-02
 
-- Feature:  Support for certain platforms that only accept simple string formats, such as DeepSeek.
+- Feature: Support for certain platforms that only accept simple string formats, such as DeepSeek.
 
 ## [Feature] - 2024-08-26
 
-- Feature:  Support custom vision model name
+- Feature: Support custom vision model name
 
 ## [Fix] - 2024-08-13
 

@@ -10,7 +10,6 @@
 
 import { LocalStorage } from "@raycast/api";
 import axios, { AxiosRequestConfig } from "axios";
-import qs from "qs";
 import { requestCostTime } from "../../axiosConfig";
 import { userAgent } from "../../consts";
 import { DetectedLangModel, LanguageDetectType } from "../../detectLanguage/types";
@@ -30,7 +29,9 @@ let bingConfig: BingConfig | undefined;
 const defaultBingHost = "www.bing.com";
 
 // * bing host depends ip, if ip is in china, `must` use cn.bing.com, otherwise use www.bing.com. And vice versa.
-let bingHost = myPreferences.bingHost || defaultBingHost;
+let bingHost: string = myPreferences.bingHost || defaultBingHost;
+
+let retryCount = 0;
 
 /**
  * Request Microsoft Bing Web Translator.
@@ -95,7 +96,7 @@ export async function requestWebBingTranslate(queryWordInfo: QueryWordInfo): Pro
     headers: {
       "User-Agent": userAgent,
     },
-    data: qs.stringify(data),
+    data: new URLSearchParams(data).toString(),
   };
 
   return new Promise((resolve, reject) => {
@@ -104,24 +105,39 @@ export async function requestWebBingTranslate(queryWordInfo: QueryWordInfo): Pro
         const finalUrl = response.request.res.responseUrl;
         console.log(`bing finalUrl: ${finalUrl}`);
 
-        // get host
-        bingHost = new URL(finalUrl).host;
+        // Get new host
+        const newBingHost = new URL(finalUrl).host;
         const responseData = response.data;
         console.warn(`bing translate cost time: ${response.headers[requestCostTime]}`);
 
         // If bing translate response is empty, may be ip has been changed, bing tld is not correct, so check ip again, then request again.
         if (!responseData) {
-          console.warn(`bing translate response is empty, change to use new host: ${bingHost}, then request again`);
-          requestBingConfig().then((bingConfig) => {
-            if (bingConfig) {
-              requestWebBingTranslate(queryWordInfo)
-                .then((result) => resolve(result))
-                .catch((error) => reject(error));
-            } else {
-              reject(undefined);
-            }
-          });
+          if (bingHost !== newBingHost && retryCount < 3) {
+            console.warn(
+              `bing translate response is empty, change to use new host: ${bingHost}, then request again, retryCount: ${retryCount}`,
+            );
+            retryCount++;
+            requestBingConfig().then((bingConfig) => {
+              if (bingConfig) {
+                requestWebBingTranslate(queryWordInfo)
+                  .then((result) => resolve(result))
+                  .catch((error) => reject(error));
+              } else {
+                return reject({
+                  type: TranslationType.Bing,
+                  message: "Bing translate response is empty, get bing config failed",
+                } as RequestErrorInfo);
+              }
+            });
+          } else {
+            return reject({
+              type: TranslationType.Bing,
+              message: "Bing translate response is empty",
+            } as RequestErrorInfo);
+          }
         } else {
+          retryCount = 0;
+
           console.log(`bing response: ${JSON.stringify(responseData, null, 4)}`);
           const bingTranslateResult = responseData[0] as BingTranslateResult;
           const translations = bingTranslateResult.translations[0].text.split("\n");
